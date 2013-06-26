@@ -50,8 +50,7 @@ public class TailServer {
 
 		File[] files = directory.listFiles();
 		for (File file : files) {
-			if (file.getName().startsWith("LocalRecording")
-					&& file.isDirectory()) {
+			if (file.getName().startsWith("LocalRecording") && file.isDirectory()) {
 				directory = file;
 				System.out.println("Recording directory found: " + directory);
 			}
@@ -78,8 +77,7 @@ public class TailServer {
 
 		while (listening) {
 			try {
-				new ServerThread(serverSocket.accept(), clients,
-						recordingDirectory).start();
+				new ServerThread(serverSocket.accept(), clients, recordingDirectory).start();
 			} catch (IOException e) {
 				System.out.println("Error in accept loop!");
 				e.printStackTrace();
@@ -103,17 +101,14 @@ public class TailServer {
 		public InputStream open(File file) throws IOException {
 			File cmd = new File(externOpenCmd);
 			if (cmd.isFile()) {
-				System.out.println("External open executable found: "
-						+ cmd.getAbsolutePath());
-				System.out.println("Command: " + cmd.getAbsolutePath() + " \""
-						+ file.getAbsolutePath() + "\"");
+				System.out.println("External open executable found: " + cmd.getAbsolutePath());
+				System.out.println("Command: " + cmd.getAbsolutePath() + " \"" + file.getAbsolutePath()
+						+ "\"");
 				Process process = Runtime.getRuntime().exec(
-						new String[] { cmd.getAbsolutePath(),
-								file.getAbsolutePath() });
+						new String[] { cmd.getAbsolutePath(), file.getAbsolutePath() });
 				return process.getInputStream();
 			} else {
-				System.out.println("External open executable not found: "
-						+ cmd.getAbsolutePath());
+				System.out.println("External open executable not found: " + cmd.getAbsolutePath());
 				return null;
 			}
 		}
@@ -124,8 +119,7 @@ public class TailServer {
 		ReadType type2 = new ReadDirect();
 
 		@Override
-		public InputStream open(File file) throws FileNotFoundException,
-				IOException {
+		public InputStream open(File file) throws FileNotFoundException, IOException {
 			InputStream i = type1.open(file);
 			if (i == null) {
 				i = type2.open(file);
@@ -142,8 +136,7 @@ public class TailServer {
 		private File directory;
 		private int size;
 
-		public Tail(Socket socket, BufferedOutputStream stream, Client client,
-				File directory) {
+		public Tail(Socket socket, BufferedOutputStream stream, Client client, File directory) {
 			this.socket = socket;
 			this.stream = stream;
 			this.client = client;
@@ -159,8 +152,7 @@ public class TailServer {
 				long timeout = timoutTicks;
 				while (isConnected(socket) && timeout >= 0) {
 					try {
-						for (int read = input.read(buffer); read >= 0; read = input
-								.read(buffer)) {
+						for (int read = input.read(buffer); read >= 0; read = input.read(buffer)) {
 							stream.write(buffer, 0, read);
 							size += read;
 							client.setContentLength(size);
@@ -183,8 +175,7 @@ public class TailServer {
 			}
 			try {
 				input.close();
-			} catch (Exception e1) {
-			}
+			} catch (Exception e1) {}
 		}
 
 		private boolean isConnected(Socket socket) {
@@ -236,8 +227,7 @@ public class TailServer {
 
 	private static class ServerThread extends Thread {
 		private static final CharSequence HTTP_RESPONSE = "HTTP/1.0 200 Ok\r\n"
-				+ "Server: TailServer/1.0\r\n"
-				+ "Content-Type: application/octet-stream\r\n"
+				+ "Server: TailServer/1.0\r\n" + "Content-Type: application/octet-stream\r\n"
 				+ "Connection: close\r\n" + "\r\n";
 
 		private Socket socket = null;
@@ -258,10 +248,8 @@ public class TailServer {
 
 		public void run() {
 			try {
-				BufferedOutputStream stream = new BufferedOutputStream(
-						socket.getOutputStream());
-				BufferedReader in = new BufferedReader(new InputStreamReader(
-						socket.getInputStream()));
+				BufferedOutputStream stream = new BufferedOutputStream(socket.getOutputStream());
+				BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
 				new PrintWriter(stream).append(HTTP_RESPONSE);
 				new Tail(socket, stream, client, directory).run();
@@ -272,8 +260,8 @@ public class TailServer {
 				clients.removeClient(client);
 				client.disconnect();
 				System.out.println("Client disconnected: " + client);
-				System.out.println("Stats: sent: " + client.getSize()
-						+ ", average speed: " + client.getAverageSpeed());
+				System.out.println("Stats: sent: " + client.getSize() + ", average speed: "
+						+ client.getAverageSpeed());
 
 			} catch (IOException e) {
 				e.printStackTrace();
@@ -319,8 +307,7 @@ public class TailServer {
 			window.getContentPane().add(BorderLayout.CENTER, pane);
 			window.getContentPane().add(BorderLayout.SOUTH, clients);
 
-			PrintStream windowStream = new PrintStream(
-					new JTextAreaOutputStream(area));
+			PrintStream windowStream = new PrintStream(new JTextAreaOutputStream(area));
 			System.setOut(windowStream);
 			System.setErr(windowStream);
 		}
@@ -402,8 +389,7 @@ public class TailServer {
 				box.add(Box.createHorizontalStrut(15));
 				fieldFile = new JTextField();
 				fieldFile.setEditable(false);
-				fieldFile.setPreferredSize(new Dimension(200, fieldSize
-						.getPreferredSize().height));
+				fieldFile.setPreferredSize(new Dimension(200, fieldSize.getPreferredSize().height));
 				box.add(fieldFile);
 				repaint(box);
 
@@ -467,8 +453,7 @@ public class TailServer {
 			private void updateSpeed() {
 				long time = System.currentTimeMillis();
 				if (previousTime != 0 && previousSize != 0) {
-					double currentSpeed = (size - previousSize)
-							/ (time - previousTime) * 1000;
+					double currentSpeed = (size - previousSize) / (time - previousTime) * 1000;
 					speed = speed / 2 + currentSpeed / 2;
 					if (currentSpeed == 0)
 						speed = 0;
@@ -494,8 +479,7 @@ public class TailServer {
 
 			@Override
 			public String getAverageSpeed() {
-				return formatHumanReadable(size / (stopTime - startTime) * 1000)
-						+ "/s";
+				return formatHumanReadable(size / (stopTime - startTime) * 1000) + "/s";
 			}
 
 			@Override

@@ -7,7 +7,7 @@ namespace Tail
 	{
 		public static void Main (string[] args)
 		{
-			using (StreamReader reader = new StreamReader(new FileStream(args[0], 
+			using (BinaryReader reader = new BinaryReader(new FileStream(args[0], 
                      FileMode.Open, FileAccess.Read, FileShare.ReadWrite))) {
 				//start at the end of the file
 				//long lastMaxOffset = reader.BaseStream.Length;
@@ -25,9 +25,13 @@ namespace Tail
 					reader.BaseStream.Seek (lastMaxOffset, SeekOrigin.Begin);
 
 					//read out of the file until the EOF
-					string line = "";
-					while ((line = reader.ReadLine()) != null)
-						Console.WriteLine (line);
+					const int bufferSize = 4096;
+					byte[] buffer = new byte[bufferSize];
+					int count;
+					Stream stdout = Console.OpenStandardOutput();
+					while ((count = reader.Read(buffer, 0, buffer.Length)) != 0) {
+						stdout.Write (buffer, 0, count);
+					}
 
 					//update the last max offset
 					lastMaxOffset = reader.BaseStream.Position;
