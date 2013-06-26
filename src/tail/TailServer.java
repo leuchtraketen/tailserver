@@ -36,7 +36,7 @@ public class TailServer {
 	private static final long GUI_UPDATE_INTERVAL = 1000;
 	private static final long FILE_CHANGE_TIMEOUT = 5000;
 
-	private static String externOpenCmd = "../open.exe";
+	private static String externOpenCmd = "open.exe";
 
 	public static void main(String[] args) throws IOException {
 		TailGui gui = new TailGui();
