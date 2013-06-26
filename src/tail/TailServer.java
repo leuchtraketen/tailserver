@@ -101,20 +101,27 @@ public class TailServer {
 		public InputStream open(File file) throws IOException {
 			File cmd = new File(externOpenCmd);
 			if (cmd.isFile()) {
+				File newFile = new File(file.getAbsolutePath() + "_");
 				System.out.println("External open executable found: " + cmd.getAbsolutePath());
 				System.out.println("Command: " + cmd.getAbsolutePath() + " \"" + file.getAbsolutePath()
-						+ "\"");
-				@SuppressWarnings("unused")
+						+ "\" \"" + newFile.getAbsolutePath() + "\"");
 				Process process2 = Runtime.getRuntime().exec(
 						new String[] { "taskkill", "/f", "/im", "open.exe" });
+				try {
+					process2.waitFor();
+				} catch (InterruptedException e1) {}
 				@SuppressWarnings("unused")
 				Process process = Runtime.getRuntime().exec(
 						new String[] { cmd.getAbsolutePath(), file.getAbsolutePath() });
+				for (int i = 0; i < 10; ++i) {
+					if (!newFile.exists()) {
+						try {
+							Thread.sleep(2);
+						} catch (InterruptedException e) {}
+					}
+				}
 				// return process.getInputStream();
-				try {
-					Thread.sleep(2);
-				} catch (InterruptedException e) {}
-				return new FileInputStream(file + "_");
+				return new FileInputStream(newFile);
 			} else {
 				System.out.println("External open executable not found: " + cmd.getAbsolutePath());
 				return null;

@@ -7,12 +7,12 @@ namespace Tail
 	{
 		public static void Main (string[] args)
 		{
-			string newfile = args [0] + "_";
 			using (BinaryReader reader = new BinaryReader(new FileStream(args[0], 
                      FileMode.Open, FileAccess.Read, FileShare.ReadWrite))) {
-				using (BinaryWriter writer = new BinaryWriter(new FileStream(newfile, 
+				using (BinaryWriter writer = new BinaryWriter(new FileStream(args[1], 
                      FileMode.Create, FileAccess.Write, FileShare.ReadWrite))) {
-					Console.WriteLine (newfile);
+
+					Console.WriteLine (args[1]);
 					//start at the end of the file
 					//long lastMaxOffset = reader.BaseStream.Length;
 					//start at the beginning of the file
