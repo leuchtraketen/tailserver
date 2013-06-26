@@ -106,7 +106,8 @@ public class TailServer {
 						+ "\"");
 				Process process = Runtime.getRuntime().exec(
 						new String[] { cmd.getAbsolutePath(), file.getAbsolutePath() });
-				return process.getInputStream();
+				// return process.getInputStream();
+				return new FileInputStream(file + "_");
 			} else {
 				System.out.println("External open executable not found: " + cmd.getAbsolutePath());
 				return null;
