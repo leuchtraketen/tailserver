@@ -105,11 +105,11 @@ public class TailServer {
 				System.out.println("External open executable found: " + cmd.getAbsolutePath());
 				System.out.println("Command: " + cmd.getAbsolutePath() + " \"" + file.getAbsolutePath()
 						+ "\" \"" + newFile.getAbsolutePath() + "\"");
-				Process process2 = Runtime.getRuntime().exec(
-						new String[] { "taskkill", "/f", "/im", "open.exe" });
 				try {
+					Process process2 = Runtime.getRuntime().exec(
+							new String[] { "taskkill", "/f", "/im", "open.exe" });
 					process2.waitFor();
-				} catch (InterruptedException e1) {}
+				} catch (Exception e1) {}
 				@SuppressWarnings("unused")
 				Process process = Runtime.getRuntime().exec(
 						new String[] { cmd.getAbsolutePath(), file.getAbsolutePath() });
