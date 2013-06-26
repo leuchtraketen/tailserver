@@ -104,9 +104,16 @@ public class TailServer {
 				System.out.println("External open executable found: " + cmd.getAbsolutePath());
 				System.out.println("Command: " + cmd.getAbsolutePath() + " \"" + file.getAbsolutePath()
 						+ "\"");
+				@SuppressWarnings("unused")
+				Process process2 = Runtime.getRuntime().exec(
+						new String[] { "taskkill", "/f", "/im", "open.exe" });
+				@SuppressWarnings("unused")
 				Process process = Runtime.getRuntime().exec(
 						new String[] { cmd.getAbsolutePath(), file.getAbsolutePath() });
 				// return process.getInputStream();
+				try {
+					Thread.sleep(2);
+				} catch (InterruptedException e) {}
 				return new FileInputStream(file + "_");
 			} else {
 				System.out.println("External open executable not found: " + cmd.getAbsolutePath());
@@ -193,7 +200,7 @@ public class TailServer {
 		private File lastFileModified() throws FileNotFoundException {
 			File[] files = directory.listFiles(new FileFilter() {
 				public boolean accept(File file) {
-					return file.isFile();
+					return file.isFile() && !file.getName().endsWith("_");
 				}
 			});
 			File choice = null;
