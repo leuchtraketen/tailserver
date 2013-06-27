@@ -21,7 +21,7 @@ namespace Tail
 					//Stream stdout = Console.OpenStandardOutput ();
 
 					while (true) {
-						System.Threading.Thread.Sleep (100);
+						System.Threading.Thread.Sleep (250);
 
 						//if the file size has not changed, idle
 						if (reader.BaseStream.Length == lastMaxOffset)
