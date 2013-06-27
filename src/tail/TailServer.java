@@ -88,12 +88,12 @@ public class TailServer {
 	}
 
 	private interface ReadType {
-		InputStream open(File file) throws FileNotFoundException, IOException;
+		InputStream open(File file) throws IOException;
 	}
 
 	private static class ReadDirect implements ReadType {
 		@Override
-		public InputStream open(File file) throws FileNotFoundException {
+		public InputStream open(File file) throws IOException {
 			return new FileInputStream(file);
 		}
 	}
@@ -133,27 +133,11 @@ public class TailServer {
 	}
 
 	private static class ReadBothTypes implements ReadType {
-
-		List<ReadType> readMethods;
-
-		public ReadBothTypes() {
-			readMethods = new ArrayList<ReadType>();
-			readMethods.add(new ReadExtern());
-			readMethods.add(new ReadDirect());
-		}
-
 		@Override
-		public InputStream open(File file) throws FileNotFoundException {
-			InputStream i = new ReadDirect().open(file);
-			/*for (ReadType r : readMethods) {
-				try {
-					if (i == null) {
-						r.open(file);
-					}
-				} catch (Exception e) {
-					e.printStackTrace();
-				}
-			}*/
+		public InputStream open(File file) throws IOException {
+			InputStream i = new ReadExtern().open(file);
+			if (i == null)
+				new ReadDirect().open(file);
 			return i;
 		}
 	}
