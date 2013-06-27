@@ -143,9 +143,9 @@ public class TailServer {
 		}
 
 		@Override
-		public InputStream open(File file) {
-			InputStream i = null;
-			for (ReadType r : readMethods) {
+		public InputStream open(File file) throws FileNotFoundException {
+			InputStream i = new ReadDirect().open(file);
+			/*for (ReadType r : readMethods) {
 				try {
 					if (i == null) {
 						r.open(file);
@@ -153,7 +153,7 @@ public class TailServer {
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
-			}
+			}*/
 			return i;
 		}
 	}
