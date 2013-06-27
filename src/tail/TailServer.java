@@ -119,7 +119,7 @@ public class TailServer {
 				for (int i = 0; i < 10; ++i) {
 					if (!newfile.exists()) {
 						try {
-							Thread.sleep(2);
+							Thread.sleep(1000);
 						} catch (InterruptedException e) {}
 					}
 				}
