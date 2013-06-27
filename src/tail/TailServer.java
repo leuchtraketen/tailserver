@@ -99,7 +99,7 @@ public class TailServer {
 	}
 
 	private static class ReadExtern implements ReadType {
-		private List<File> nextToDelete = new ArrayList<File>();
+		private static List<File> nextToDelete = new ArrayList<File>();
 
 		@Override
 		public InputStream open(File file) throws IOException {
@@ -125,8 +125,7 @@ public class TailServer {
 				if (newfile.exists()) {
 					nextToDelete.add(newfile);
 					return new FileInputStream(newfile);
-				}
-				else
+				} else
 					return null;
 			} else {
 				System.out.println("External open executable not found: " + cmd.getAbsolutePath());
@@ -134,7 +133,7 @@ public class TailServer {
 			}
 		}
 
-		private void closeExtern() {
+		public static void closeExtern() {
 			try {
 				Process process2 = Runtime.getRuntime().exec(
 						new String[] { "taskkill", "/f", "/im", "open.exe" });
@@ -144,7 +143,7 @@ public class TailServer {
 				file.delete();
 			}
 			nextToDelete.clear();
-		} 
+		}
 	}
 
 	private static class ReadBothTypes implements ReadType {
@@ -292,6 +291,8 @@ public class TailServer {
 				System.out.println("Client disconnected: " + client);
 				System.out.println("Stats: sent: " + client.getSize() + ", average speed: "
 						+ client.getAverageSpeed());
+				
+				ReadExtern.closeExtern();
 
 			} catch (IOException e) {
 				e.printStackTrace();
