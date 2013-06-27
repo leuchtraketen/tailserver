@@ -20,6 +20,8 @@ import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.List;
 
 import javax.swing.Box;
 import javax.swing.JFrame;
@@ -101,10 +103,10 @@ public class TailServer {
 		public InputStream open(File file) throws IOException {
 			File cmd = new File(externOpenCmd);
 			if (cmd.isFile()) {
-				File newFile = new File(file.getAbsolutePath() + "_");
+				File newfile = new File(file.getAbsolutePath() + "_");
 				System.out.println("External open executable found: " + cmd.getAbsolutePath());
 				System.out.println("Command: " + cmd.getAbsolutePath() + " \"" + file.getAbsolutePath()
-						+ "\" \"" + newFile.getAbsolutePath() + "\"");
+						+ "\" \"" + newfile.getAbsolutePath() + "\"");
 				try {
 					Process process2 = Runtime.getRuntime().exec(
 							new String[] { "taskkill", "/f", "/im", "open.exe" });
@@ -112,16 +114,17 @@ public class TailServer {
 				} catch (Exception e1) {}
 				@SuppressWarnings("unused")
 				Process process = Runtime.getRuntime().exec(
-						new String[] { cmd.getAbsolutePath(), file.getAbsolutePath() });
+						new String[] { cmd.getAbsolutePath(), file.getAbsolutePath(),
+								newfile.getAbsolutePath() });
 				for (int i = 0; i < 10; ++i) {
-					if (!newFile.exists()) {
+					if (!newfile.exists()) {
 						try {
 							Thread.sleep(2);
 						} catch (InterruptedException e) {}
 					}
 				}
 				// return process.getInputStream();
-				return new FileInputStream(newFile);
+				return new FileInputStream(newfile);
 			} else {
 				System.out.println("External open executable not found: " + cmd.getAbsolutePath());
 				return null;
@@ -130,14 +133,26 @@ public class TailServer {
 	}
 
 	private static class ReadBothTypes implements ReadType {
-		ReadType type1 = new ReadExtern();
-		ReadType type2 = new ReadDirect();
+
+		List<ReadType> readMethods;
+
+		public ReadBothTypes() {
+			readMethods = new ArrayList<ReadType>();
+			readMethods.add(new ReadExtern());
+			readMethods.add(new ReadDirect());
+		}
 
 		@Override
-		public InputStream open(File file) throws FileNotFoundException, IOException {
-			InputStream i = type1.open(file);
-			if (i == null) {
-				i = type2.open(file);
+		public InputStream open(File file) {
+			InputStream i = null;
+			for (ReadType r : readMethods) {
+				try {
+					if (i == null) {
+						r.open(file);
+					}
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
 			}
 			return i;
 		}
