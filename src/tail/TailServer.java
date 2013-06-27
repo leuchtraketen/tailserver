@@ -20,6 +20,8 @@ import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.List;
 
 import javax.swing.Box;
 import javax.swing.JFrame;
@@ -97,6 +99,8 @@ public class TailServer {
 	}
 
 	private static class ReadExtern implements ReadType {
+		private List<File> nextToDelete = new ArrayList<File>();
+
 		@Override
 		public InputStream open(File file) throws IOException {
 			File cmd = new File(externOpenCmd);
@@ -105,11 +109,7 @@ public class TailServer {
 				System.out.println("External open executable found: " + cmd.getAbsolutePath());
 				System.out.println("Command: " + cmd.getAbsolutePath() + " \"" + file.getAbsolutePath()
 						+ "\" \"" + newfile.getAbsolutePath() + "\"");
-				try {
-					Process process2 = Runtime.getRuntime().exec(
-							new String[] { "taskkill", "/f", "/im", "open.exe" });
-					process2.waitFor();
-				} catch (Exception e1) {}
+				closeExtern();
 				@SuppressWarnings("unused")
 				Process process = Runtime.getRuntime().exec(
 						new String[] { cmd.getAbsolutePath(), file.getAbsolutePath(),
@@ -122,13 +122,29 @@ public class TailServer {
 						} catch (InterruptedException e) {}
 					}
 				}
-				// return process.getInputStream();
-				return new FileInputStream(newfile);
+				if (newfile.exists()) {
+					nextToDelete.add(newfile);
+					return new FileInputStream(newfile);
+				}
+				else
+					return null;
 			} else {
 				System.out.println("External open executable not found: " + cmd.getAbsolutePath());
 				return null;
 			}
 		}
+
+		private void closeExtern() {
+			try {
+				Process process2 = Runtime.getRuntime().exec(
+						new String[] { "taskkill", "/f", "/im", "open.exe" });
+				process2.waitFor();
+			} catch (Exception e1) {}
+			for (File file : nextToDelete) {
+				file.delete();
+			}
+			nextToDelete.clear();
+		} 
 	}
 
 	private static class ReadBothTypes implements ReadType {
@@ -147,7 +163,7 @@ public class TailServer {
 		private BufferedOutputStream stream;
 		private Client client;
 		private File directory;
-		private int size;
+		private long size;
 
 		public Tail(Socket socket, BufferedOutputStream stream, Client client, File directory) {
 			this.socket = socket;
