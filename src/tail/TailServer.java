@@ -20,8 +20,6 @@ import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.ArrayList;
-import java.util.List;
 
 import javax.swing.Box;
 import javax.swing.JFrame;
@@ -103,7 +101,7 @@ public class TailServer {
 		public InputStream open(File file) throws IOException {
 			File cmd = new File(externOpenCmd);
 			if (cmd.isFile()) {
-				File newfile = new File(file.getAbsolutePath() + "_");
+				File newfile = new File(file.getParent() + File.separator + "Copy of " + file.getName());
 				System.out.println("External open executable found: " + cmd.getAbsolutePath());
 				System.out.println("Command: " + cmd.getAbsolutePath() + " \"" + file.getAbsolutePath()
 						+ "\" \"" + newfile.getAbsolutePath() + "\"");
@@ -118,6 +116,7 @@ public class TailServer {
 								newfile.getAbsolutePath() });
 				for (int i = 0; i < 10; ++i) {
 					if (!newfile.exists()) {
+						System.out.println("Waiting for \"" + newfile.getName() + "\"...");
 						try {
 							Thread.sleep(1000);
 						} catch (InterruptedException e) {}
@@ -206,7 +205,8 @@ public class TailServer {
 		private File lastFileModified() throws FileNotFoundException {
 			File[] files = directory.listFiles(new FileFilter() {
 				public boolean accept(File file) {
-					return file.isFile() && !file.getName().endsWith("_");
+					return file.isFile() && !file.getName().endsWith("_")
+							&& !file.getName().startsWith("Copy");
 				}
 			});
 			File choice = null;
