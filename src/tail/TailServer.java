@@ -20,8 +20,8 @@ import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 import javax.swing.Box;
 import javax.swing.JFrame;
@@ -37,8 +37,9 @@ public class TailServer {
 	private static final long TAIL_SLEEP_INTERVAL = 200;
 	private static final long GUI_UPDATE_INTERVAL = 1000;
 	private static final long FILE_CHANGE_TIMEOUT = 5000;
+	private static final long MAX_FILE_LENGTH = 5 * 1024 * 1024 * 1024;
 
-	private static String externOpenCmd = "open.exe";
+	private static Set<String> finishedFiles = new HashSet<String>();
 
 	public static void main(String[] args) throws IOException {
 		TailGui gui = new TailGui();
@@ -46,21 +47,54 @@ public class TailServer {
 		new TailServer().runServer(gui);
 	}
 
-	private File findRecordingDirectory() {
-		File directory = new File(".").getAbsoluteFile();
-		System.out.println("Current directory is " + directory);
+	private static File RECORDING_DIR = null;
 
-		File[] files = directory.listFiles();
-		for (File file : files) {
-			if (file.getName().startsWith("LocalRecording") && file.isDirectory()) {
-				directory = file;
-				System.out.println("Recording directory found: " + directory);
+	private static File findRecordingDirectory() {
+		if (RECORDING_DIR == null) {
+			File directory = new File(".").getAbsoluteFile();
+			System.out.println("Current directory is " + directory);
+
+			File[] files = directory.listFiles();
+			for (File file : files) {
+				if (file.getName().startsWith("LocalRecording") && file.isDirectory()) {
+					directory = file;
+					System.out.println("Recording directory found: " + directory);
+				}
+			}
+			RECORDING_DIR = directory;
+		}
+		return RECORDING_DIR;
+	}
+
+	public static File lastFileModified() throws FileNotFoundException {
+		File directory = findRecordingDirectory();
+
+		File[] files = directory.listFiles(new FileFilter() {
+			public boolean accept(File file) {
+				return file.isFile() && !file.getName().endsWith("_") && !file.getName().startsWith("Copy");
+			}
+		});
+		File choice = null;
+		if (files != null) {
+			long lastMod = Long.MIN_VALUE;
+
+			for (File file : files) {
+				if (file.lastModified() > lastMod) {
+					choice = file;
+					lastMod = file.lastModified();
+				}
 			}
 		}
-		return directory;
+		if (choice != null) {
+			System.out.println("Found last modified file: " + choice);
+			return choice;
+		} else {
+			throw new FileNotFoundException();
+		}
 	}
 
 	private void runServer(ClientList clients) {
+		@SuppressWarnings("unused")
 		File recordingDirectory = findRecordingDirectory();
 
 		ServerSocket serverSocket = null;
@@ -79,7 +113,7 @@ public class TailServer {
 
 		while (listening) {
 			try {
-				new ServerThread(serverSocket.accept(), clients, recordingDirectory).start();
+				new ServerThread(serverSocket.accept(), clients).start();
 			} catch (IOException e) {
 				System.out.println("Error in accept loop!");
 				e.printStackTrace();
@@ -88,70 +122,26 @@ public class TailServer {
 	}
 
 	private interface ReadType {
-		InputStream open(File file) throws IOException;
+		InputStream open(File file, long pos) throws IOException;
 	}
 
 	private static class ReadDirect implements ReadType {
 		@Override
-		public InputStream open(File file) throws IOException {
-			return new FileInputStream(file);
-		}
-	}
-
-	private static class ReadExtern implements ReadType {
-		private static List<File> nextToDelete = new ArrayList<File>();
-
-		@Override
-		public InputStream open(File file) throws IOException {
-			File cmd = new File(externOpenCmd);
-			if (cmd.isFile()) {
-				File newfile = new File(file.getParent() + File.separator + "Copy of " + file.getName());
-				System.out.println("External open executable found: " + cmd.getAbsolutePath());
-				System.out.println("Command: " + cmd.getAbsolutePath() + " \"" + file.getAbsolutePath()
-						+ "\" \"" + newfile.getAbsolutePath() + "\"");
-				closeExtern();
-				@SuppressWarnings("unused")
-				Process process = Runtime.getRuntime().exec(
-						new String[] { cmd.getAbsolutePath(), file.getAbsolutePath(),
-								newfile.getAbsolutePath() });
-				for (int i = 0; i < 10; ++i) {
-					if (!newfile.exists()) {
-						System.out.println("Waiting for \"" + newfile.getName() + "\"...");
-						try {
-							Thread.sleep(1000);
-						} catch (InterruptedException e) {}
-					}
-				}
-				if (newfile.exists()) {
-					nextToDelete.add(newfile);
-					return new FileInputStream(newfile);
-				} else
-					return null;
-			} else {
-				System.out.println("External open executable not found: " + cmd.getAbsolutePath());
-				return null;
-			}
-		}
-
-		public static void closeExtern() {
-			try {
-				Process process2 = Runtime.getRuntime().exec(
-						new String[] { "taskkill", "/f", "/im", "open.exe" });
-				process2.waitFor();
-			} catch (Exception e1) {}
-			for (File file : nextToDelete) {
-				file.delete();
-			}
-			nextToDelete.clear();
+		public InputStream open(File file, long pos) throws IOException {
+			InputStream i = new FileInputStream(file);
+			System.out.println("open: " + file + " (offset=" + pos + ")");
+			if (pos > 0)
+				i.skip(pos);
+			return i;
 		}
 	}
 
 	private static class ReadBothTypes implements ReadType {
 		@Override
-		public InputStream open(File file) throws IOException {
-			InputStream i = new ReadExtern().open(file);
+		public InputStream open(File file, long pos) throws IOException {
+			InputStream i = null;
 			if (i == null)
-				new ReadDirect().open(file);
+				i = new ReadDirect().open(file, pos);
 			return i;
 		}
 	}
@@ -161,20 +151,18 @@ public class TailServer {
 		private Socket socket;
 		private BufferedOutputStream stream;
 		private Client client;
-		private File directory;
 		private long size;
 
-		public Tail(Socket socket, BufferedOutputStream stream, Client client, File directory) {
+		public Tail(Socket socket, BufferedOutputStream stream, Client client) {
 			this.socket = socket;
 			this.stream = stream;
 			this.client = client;
-			this.directory = directory;
 		}
 
-		private void tail(File file) {
+		private void tail(File file, long pos) {
 			BufferedInputStream input = null;
 			try {
-				input = new BufferedInputStream(new ReadBothTypes().open(file));
+				input = new BufferedInputStream(new ReadBothTypes().open(file, pos));
 				final byte[] buffer = new byte[32768];
 				long timoutTicks = FILE_CHANGE_TIMEOUT / TAIL_SLEEP_INTERVAL;
 				long timeout = timoutTicks;
@@ -185,6 +173,7 @@ public class TailServer {
 							size += read;
 							client.setContentLength(size);
 							timeout = timoutTicks;
+							setFileNotFinished(file);
 						}
 					} catch (IOException e1) {
 						e1.printStackTrace();
@@ -198,6 +187,7 @@ public class TailServer {
 					--timeout;
 				}
 				input.close();
+				setFileFinished(file);
 			} catch (IOException e1) {
 				e1.printStackTrace();
 			}
@@ -217,59 +207,26 @@ public class TailServer {
 			return true;
 		}
 
-		private File lastFileModified() throws FileNotFoundException {
-			File[] files = directory.listFiles(new FileFilter() {
-				public boolean accept(File file) {
-					return file.isFile() && !file.getName().endsWith("_")
-							&& !file.getName().startsWith("Copy");
-				}
-			});
-			File choice = null;
-			if (files != null) {
-				long lastMod = Long.MIN_VALUE;
-
-				for (File file : files) {
-					if (file.lastModified() > lastMod) {
-						choice = file;
-						lastMod = file.lastModified();
-					}
-				}
-			}
-			if (choice != null) {
-				System.out.println("Found last modified file: " + choice);
-				return choice;
-			} else {
-				throw new FileNotFoundException();
-			}
-		}
-
-		public void run() {
-			try {
-				File lastFile = lastFileModified();
-				client.setFile(lastFile);
-				tail(lastFile);
-			} catch (FileNotFoundException e) {
-				System.err.println("Error! No files found.");
-			}
+		public void run(File file, long pos) {
+			client.setFile(file);
+			tail(file, pos);
 		}
 	}
 
 	private static class ServerThread extends Thread {
-		private static final CharSequence HTTP_RESPONSE = "HTTP/1.0 200 Ok\r\n"
-				+ "Server: TailServer/1.0\r\n" + "Content-Type: application/octet-stream\r\n"
-				+ "Connection: close\r\n" + "\r\n";
+		// "Content-Type: application/octet-stream\r\n"
+		private static final CharSequence HTTP_RESPONSE = "Server: TailServer/1.0\r\n"
+				+ "Content-Type: video/x-flv\r\n" + "Connection: close\r\n";
 
 		private Socket socket = null;
 		private Client client = null;
 		private ClientList clients = null;
-		private File directory = null;
 
-		public ServerThread(Socket socket, ClientList clients, File directory) {
+		public ServerThread(Socket socket, ClientList clients) {
 			super("ServerThread");
 			this.socket = socket;
 			this.client = clients.newClient();
 			this.clients = clients;
-			this.directory = directory;
 			client.setRemoteHost(socket.getInetAddress().getCanonicalHostName());
 			client.setRemotePort(socket.getPort());
 			System.out.println("Client connected: " + client);
@@ -280,8 +237,18 @@ public class TailServer {
 				BufferedOutputStream stream = new BufferedOutputStream(socket.getOutputStream());
 				BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
-				new PrintWriter(stream).append(HTTP_RESPONSE);
-				new Tail(socket, stream, client, directory).run();
+				File file = null;
+				try {
+					file = TailServer.lastFileModified();
+
+					long pos = readHeaders(in, file);
+					writeHeaders(stream, file, pos);
+
+					new Tail(socket, stream, client).run(file, pos);
+
+				} catch (FileNotFoundException e) {
+					System.err.println("Error! No files found.");
+				}
 
 				stream.close();
 				in.close();
@@ -291,12 +258,68 @@ public class TailServer {
 				System.out.println("Client disconnected: " + client);
 				System.out.println("Stats: sent: " + client.getSize() + ", average speed: "
 						+ client.getAverageSpeed());
-				
-				ReadExtern.closeExtern();
 
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
+		}
+
+		private void writeHeaders(BufferedOutputStream stream, File file, long pos) {
+			long size = isFileFinished(file) ? file.length() : MAX_FILE_LENGTH;
+			PrintWriter pw = new PrintWriter(stream);
+			if (pos > 0) {
+				pw.append("HTTP/1.0 206 Partial Content\r\n");
+				pw.append(HTTP_RESPONSE);
+				pw.append("Content-Range: " + pos + "-" + (size-1) + "/" + size + "\r\n");
+				pw.append("Content-Length: " + (size - pos) + "\r\n");
+			} else {
+				pw.append("HTTP/1.0 200 Ok\r\n");
+				pw.append(HTTP_RESPONSE);
+				pw.append("Content-Length: " + size + "\r\n");
+			}
+			pw.append("\r\n");
+			pw.flush();
+		}
+
+		private long readHeaders(BufferedReader in, File file) throws IOException {
+			String pos = "0";
+			String line;
+			while ((line = in.readLine()).length() > 2) {
+				if (line.startsWith("Range:") && line.contains("=")) {
+					pos = line.split("=")[1].split("[-]")[0];
+				}
+			}
+			return interpretPosition(pos, file);
+		}
+
+		private static long interpretPosition(String str, File file) {
+			str = str.toLowerCase();
+			long pos = 0;
+			if (str.endsWith("%")) {
+				double percent = Double.parseDouble(str.replaceAll("%", "")) / 100;
+				long size = file.length();
+				pos = (long) (size * percent);
+			} else if (str.endsWith("k") || str.endsWith("kb")) {
+				pos = 1000 * Long.parseLong(str.replaceAll("[^0-9.]", ""));
+			} else if (str.endsWith("kib")) {
+				pos = 1024 * Long.parseLong(str.replaceAll("[^0-9.]", ""));
+			} else if (str.endsWith("m") || str.endsWith("mb")) {
+				pos = 1000 * 1000 * Long.parseLong(str.replaceAll("[^0-9.]", ""));
+			} else if (str.endsWith("mib")) {
+				pos = 1024 * 1024 * Long.parseLong(str.replaceAll("[^0-9.]", ""));
+			} else if (str.endsWith("g") || str.endsWith("gb")) {
+				pos = 1000 * 1000 * 1000 * Long.parseLong(str.replaceAll("[^0-9.]", ""));
+			} else if (str.endsWith("gib")) {
+				pos = 1024 * 1024 * 1024 * Long.parseLong(str.replaceAll("[^0-9.]", ""));
+			} else {
+				try {
+					pos = Long.parseLong(str);
+				} catch (Exception e) {
+					e.printStackTrace();
+					pos = 0;
+				}
+			}
+			return pos;
 		}
 	}
 
@@ -553,5 +576,19 @@ public class TailServer {
 			Thread.currentThread().interrupt();
 			return false;
 		}
+	}
+
+	public static void setFileNotFinished(File file) {
+		if (finishedFiles.contains(file.getName())) {
+			finishedFiles.remove(file.getName());
+		}
+	}
+
+	private static void setFileFinished(File file) {
+		finishedFiles.add(file.getName());
+	}
+
+	private static boolean isFileFinished(File file) {
+		return finishedFiles.contains(file.getName());
 	}
 }
