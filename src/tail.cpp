@@ -1,7 +1,9 @@
+#include <windows.h>
 #include <iostream>
 #include <cstdlib>
 using namespace std;
 int main()
 {
-    system( "java tail.TailServer" );
+	WinExec("java tail.TailServer", SW_HIDE);
+//    system( "java tail.TailServer" );
 }
