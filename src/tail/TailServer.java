@@ -20,8 +20,8 @@ import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.HashMap;
+import java.util.Map;
 
 import javax.swing.Box;
 import javax.swing.JFrame;
@@ -39,7 +39,7 @@ public class TailServer {
 	private static final long FILE_CHANGE_TIMEOUT = 5000;
 	private static final long MAX_FILE_LENGTH = 5 * 1024 * 1024 * 1024;
 
-	private static Set<String> finishedFiles = new HashSet<String>();
+	private static Map<String, Long> filesizes = new HashMap<String, Long>();
 
 	public static void main(String[] args) throws IOException {
 		TailGui gui = new TailGui();
@@ -173,7 +173,7 @@ public class TailServer {
 							size += read;
 							client.setContentLength(size);
 							timeout = timoutTicks;
-							setFileNotFinished(file);
+							setFileSize(file);
 						}
 					} catch (IOException e1) {
 						e1.printStackTrace();
@@ -187,7 +187,7 @@ public class TailServer {
 					--timeout;
 				}
 				input.close();
-				setFileFinished(file);
+				setFileSize(file);
 			} catch (IOException e1) {
 				e1.printStackTrace();
 			}
@@ -578,17 +578,11 @@ public class TailServer {
 		}
 	}
 
-	public static void setFileNotFinished(File file) {
-		if (finishedFiles.contains(file.getName())) {
-			finishedFiles.remove(file.getName());
-		}
-	}
-
-	private static void setFileFinished(File file) {
-		finishedFiles.add(file.getName());
+	private static void setFileSize(File file) {
+		filesizes.put(file.getName(), file.length());
 	}
 
 	private static boolean isFileFinished(File file) {
-		return finishedFiles.contains(file.getName());
+		return file.length() == filesizes.get(file.getName());
 	}
 }
