@@ -243,6 +243,8 @@ public class TailServer {
 				String request = parseRequest(in);
 				if (request.equals("log")) {
 					writeLog(in, stream);
+				} else if (request.equals("reset")) {
+					reset(in, stream);
 				} else if (request.equals("file")) {
 					writeLatestFilename(in, stream);
 				} else {
@@ -333,6 +335,18 @@ public class TailServer {
 				pw.append("no log...");
 			}
 			pw.flush();
+		}
+
+		private void reset(BufferedReader in, BufferedOutputStream stream) {
+			System.out.println("Request: cache reset");
+			PrintWriter pw = new PrintWriter(stream);
+			pw.append("HTTP/1.0 200 Ok\r\n");
+			pw.append(HTTP_RESPONSE);
+			pw.append("Content-Type: text/plain\r\n");
+			pw.append("\r\n");
+			pw.flush();
+
+			filesizes.clear();
 		}
 
 		private void writeStreamHeaders(BufferedOutputStream stream, File file, long pos) {
@@ -670,6 +684,23 @@ public class TailServer {
 	}
 
 	private static boolean isFileFinished(File file) {
-		return filesizes.containsKey(file.getName()) && file.length() == filesizes.get(file.getName());
+		if (filesizes.containsKey(file.getName())) {
+			long cached = filesizes.get(file.getName());
+			if (file.length() == cached) {
+				long timeout = FILE_CHANGE_TIMEOUT;
+				while (timeout > 0) {
+					timeout -= TAIL_SLEEP_INTERVAL;
+					sleep(TAIL_SLEEP_INTERVAL);
+					if (file.length() != cached) {
+						return false;
+					}
+				}
+				return true;
+			} else {
+				return false;
+			}
+		} else {
+			return false;
+		}
 	}
 }
