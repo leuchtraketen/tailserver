@@ -45,8 +45,20 @@ public class TailDirectory implements Runnable {
 
 					if (currentFile == null || !newerFile.equals(currentFile)) {
 						setFileGrowing(currentFile, false);
-						System.out.println("[+] Stream found: " + newerFile.getName() + " (filesize = "
-								+ TailServer.formatHumanReadable(newerFile.length()) + ")");
+
+						String size = TailServer.formatBytesHumanReadable(newerFile.length());
+						long age = System.currentTimeMillis() - newerFile.lastModified();
+						String formattedAge = TailServer.formatMilliSecondsHumanReadable(age);
+						boolean stopped = age > 30 * 1000;
+						if (stopped) {
+							String name = newerFile.getName();
+							growing.put(name, false);
+							filesizeTimestamps.put(name, newerFile.lastModified());
+							filesizes.put(name, newerFile.length());
+						}
+						System.out.println("[+] " + (stopped ? "Stopped stream" : "Stream") + " found: "
+								+ newerFile.getName() + " (filesize = " + size + ", last modified = "
+								+ formattedAge + " ago)");
 						currentFile = newerFile;
 					}
 				} catch (FileNotFoundException e) {}
@@ -80,11 +92,11 @@ public class TailDirectory implements Runnable {
 		if (file != null) {
 			if (isGrowing == false && isFileGrowing(file)) {
 				System.out.println("[-] Stream stopped: " + file.getName() + " (filesize = "
-						+ TailServer.formatHumanReadable(file.length()) + ")");
+						+ TailServer.formatBytesHumanReadable(file.length()) + ")");
 			}
 			if (isGrowing == true && !isFileGrowing(file)) {
 				System.out.println("[?] Fuck! This should never happen! " + file.getName() + " (filesize = "
-						+ TailServer.formatHumanReadable(file.length()) + ")");
+						+ TailServer.formatBytesHumanReadable(file.length()) + ")");
 			}
 			final String name = file.getName();
 			growing.put(name, isGrowing);
@@ -140,6 +152,7 @@ public class TailDirectory implements Runnable {
 				}
 			}
 			RECORDING_DIR = directory;
+			System.out.println();
 		}
 		return RECORDING_DIR;
 	}

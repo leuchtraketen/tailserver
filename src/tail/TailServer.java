@@ -3,7 +3,6 @@ package tail;
 import java.io.IOException;
 import java.net.ServerSocket;
 
-
 public class TailServer {
 
 	private static final int PORT = 8081;
@@ -35,7 +34,6 @@ public class TailServer {
 				TailServer.sleep(1000);
 			}
 		}
-		System.out.println();
 
 		while (listening) {
 			try {
@@ -47,7 +45,7 @@ public class TailServer {
 		}
 	}
 
-	public static String formatHumanReadable(double number) {
+	public static String formatBytesHumanReadable(double number) {
 		String unit = "bytes";
 		if (number > 1024) {
 			number /= 1024;
@@ -59,6 +57,44 @@ public class TailServer {
 		}
 		number = (double) ((long) (number * 1000)) / 1000;
 		return number + " " + unit;
+	}
+
+	public static String formatMilliSecondsHumanReadable(long x) {
+		long millis = 0;
+		long seconds = 0;
+		long minutes = 0;
+		long hours = 0;
+		long days = 0;
+
+		seconds = (int) (x / 1000);
+		millis = x % 1000;
+
+		minutes = (int) (seconds / 60);
+		seconds = seconds % 60;
+
+		hours = (int) (minutes / 60);
+		hours = hours % 60;
+
+		days = (int) (hours / 24);
+		days = days % 24;
+
+		String str = seconds + "";
+		if (millis >= 100)
+			str += "." + millis;
+		else if (millis >= 10)
+			str += ".0" + millis;
+		else if (millis >= 1)
+			str += ".00" + millis;
+		str += " seconds";
+
+		if (minutes > 0)
+			str = minutes + " minutes " + str;
+		if (hours > 0)
+			str = hours + " hours " + str;
+		if (days > 0)
+			str = days + " days " + str;
+
+		return str;
 	}
 
 	public static void setLogProvider(LogProvider log) {

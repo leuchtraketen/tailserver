@@ -10,8 +10,8 @@ public class ReadDirect implements ReadMethod {
 	@Override
 	public InputStream open(File file, long pos) throws IOException {
 		InputStream i = new FileInputStream(file);
-		System.out.println("open: " + file + " (offset = " + TailServer.formatHumanReadable(pos) + ", filesize = "
-				+ TailServer.formatHumanReadable(file.length()) + ")");
+		System.out.println("open: " + file + " (offset = " + TailServer.formatBytesHumanReadable(pos) + ", filesize = "
+				+ TailServer.formatBytesHumanReadable(file.length()) + ")");
 		if (pos > 0)
 			i.skip(pos);
 		return i;

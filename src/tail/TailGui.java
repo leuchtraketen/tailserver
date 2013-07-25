@@ -166,7 +166,7 @@ class TailGui implements ClientList {
 		}
 
 		private void updateSize() {
-			fieldSize.setText(TailServer.formatHumanReadable(size));
+			fieldSize.setText(TailServer.formatBytesHumanReadable(size));
 		}
 
 		long previousSize = 0;
@@ -179,7 +179,7 @@ class TailGui implements ClientList {
 				speed = speed / 2 + currentSpeed / 2;
 				if (currentSpeed == 0)
 					speed = 0;
-				fieldSpeed.setText(TailServer.formatHumanReadable(speed) + "/s");
+				fieldSpeed.setText(TailServer.formatBytesHumanReadable(speed) + "/s");
 			}
 			previousTime = time;
 			previousSize = size;
@@ -187,12 +187,12 @@ class TailGui implements ClientList {
 
 		@Override
 		public String getAverageSpeed() {
-			return TailServer.formatHumanReadable(size / (stopTime - startTime) * 1000) + "/s";
+			return TailServer.formatBytesHumanReadable(size / (stopTime - startTime) * 1000) + "/s";
 		}
 
 		@Override
 		public String getSize() {
-			return TailServer.formatHumanReadable(size);
+			return TailServer.formatBytesHumanReadable(size);
 		}
 
 		@Override
