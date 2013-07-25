@@ -42,7 +42,7 @@ class ServerThread implements Runnable {
 			} else if (request.equals("file")) {
 				writeLatestFilename(in, stream, headers);
 			} else {
-				writeLatestStream(in, stream, headers);
+				writeLatestStream(in, stream, headers, request);
 				System.out.println("Stats: sent: " + client.getSize() + ", average speed: "
 						+ client.getAverageSpeed());
 			}
@@ -74,9 +74,10 @@ class ServerThread implements Runnable {
 		return request;
 	}
 
-	private void writeLatestStream(BufferedReader in, BufferedOutputStream stream, List<String> headers)
-			throws IOException {
-		System.out.println("Request: video stream (client = " + extractUserAgent(headers) + ")");
+	private void writeLatestStream(BufferedReader in, BufferedOutputStream stream, List<String> headers,
+			String request) throws IOException {
+		System.out.println("Request: video stream (client = " + extractUserAgent(headers) + ", path = /"
+				+ request + ")");
 		File file = null;
 		try {
 			file = TailDirectory.getCurrentStreamFile();

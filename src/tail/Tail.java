@@ -49,6 +49,7 @@ class Tail {
 			}
 			input.close();
 		} catch (SocketException e) {} catch (IOException e) {
+			if (!(e instanceof SocketException))
 			e.printStackTrace();
 		}
 		try {
