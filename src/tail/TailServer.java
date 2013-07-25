@@ -37,7 +37,7 @@ public class TailServer {
 	private static final long TAIL_SLEEP_INTERVAL = 200;
 	private static final long GUI_UPDATE_INTERVAL = 1000;
 	private static final long FILE_CHANGE_TIMEOUT = 5000;
-	private static final long MAX_FILE_LENGTH = 5 * 1024 * 1024 * 1024;
+	private static final long MAX_FILE_LENGTH = 5L * 1024L * 1024L * 1024L;
 
 	private static Map<String, Long> filesizes = new HashMap<String, Long>();
 
