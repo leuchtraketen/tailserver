@@ -5,7 +5,7 @@ import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.net.Socket;
-
+import java.net.SocketException;
 
 class Tail {
 
@@ -25,15 +25,17 @@ class Tail {
 		try {
 			input = new BufferedInputStream(new ReadStandard().open(file, pos));
 			final byte[] buffer = new byte[32768];
-			long timoutTicks = TailServer.FILE_CHANGE_TIMEOUT / TailServer.TAIL_SLEEP_INTERVAL;
-			long timeout = timoutTicks;
-			while (isConnected(socket) && timeout >= 0) {
+			long fixedsize = TailDirectory.isFileGrowing(file) ? 0 : file.length();
+			while (isConnected(socket)) {
+				if (fixedsize > 0 && size >= fixedsize)
+					break;
+				if (fixedsize == 0 && TailDirectory.isFileNotGrowingSince(file))
+					break;
 				try {
 					for (int read = input.read(buffer); read >= 0; read = input.read(buffer)) {
 						stream.write(buffer, 0, read);
 						size += read;
 						client.setContentLength(size);
-						timeout = timoutTicks;
 					}
 				} catch (IOException e1) {
 					e1.printStackTrace();
@@ -44,11 +46,10 @@ class Tail {
 					System.out.println("Tail thread interrupted :(");
 					break;
 				}
-				--timeout;
 			}
 			input.close();
-		} catch (IOException e1) {
-			e1.printStackTrace();
+		} catch (SocketException e) {} catch (IOException e) {
+			e.printStackTrace();
 		}
 		try {
 			input.close();

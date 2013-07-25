@@ -8,6 +8,8 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.List;
 
 class ServerThread implements Runnable {
 	// "Content-Type: application/octet-stream\r\n"
@@ -32,14 +34,15 @@ class ServerThread implements Runnable {
 			BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
 			String request = parseRequest(in);
+			List<String> headers = readHeaders(in);
 			if (request.equals("log")) {
-				writeLog(in, stream);
+				writeLog(in, stream, headers);
 			} else if (request.equals("reset")) {
-				reset(in, stream);
+				reset(in, stream, headers);
 			} else if (request.equals("file")) {
-				writeLatestFilename(in, stream);
+				writeLatestFilename(in, stream, headers);
 			} else {
-				writeLatestStream(in, stream);
+				writeLatestStream(in, stream, headers);
 				System.out.println("Stats: sent: " + client.getSize() + ", average speed: "
 						+ client.getAverageSpeed());
 			}
@@ -59,6 +62,9 @@ class ServerThread implements Runnable {
 
 	private String parseRequest(BufferedReader in) throws IOException {
 		String request = in.readLine();
+		if (request == null) {
+			request = "";
+		}
 		if (request.contains(" ")) {
 			request = request.split(" ")[1];
 			if (request.startsWith("/")) {
@@ -68,13 +74,14 @@ class ServerThread implements Runnable {
 		return request;
 	}
 
-	private void writeLatestStream(BufferedReader in, BufferedOutputStream stream) throws IOException {
-		System.out.println("Request: video stream");
+	private void writeLatestStream(BufferedReader in, BufferedOutputStream stream, List<String> headers)
+			throws IOException {
+		System.out.println("Request: video stream (client = " + extractUserAgent(headers) + ")");
 		File file = null;
 		try {
 			file = TailDirectory.getCurrentStreamFile();
 
-			long pos = readHeaders(in, file);
+			long pos = extractPosition(headers, file);
 			writeStreamHeaders(stream, file, pos);
 
 			new Tail(socket, stream, client).run(file, pos);
@@ -90,8 +97,9 @@ class ServerThread implements Runnable {
 		}
 	}
 
-	private void writeLatestFilename(BufferedReader in, BufferedOutputStream stream) throws IOException {
-		System.out.println("Request: latest file name");
+	private void writeLatestFilename(BufferedReader in, BufferedOutputStream stream, List<String> headers)
+			throws IOException {
+		System.out.println("Request: latest file name (client = " + extractUserAgent(headers) + ")");
 		PrintWriter pw = new PrintWriter(stream);
 		pw.append("HTTP/1.0 200 Ok\r\n");
 		pw.append(HTTP_RESPONSE);
@@ -109,8 +117,9 @@ class ServerThread implements Runnable {
 		pw.flush();
 	}
 
-	private void writeLog(BufferedReader in, BufferedOutputStream stream) throws IOException {
-		System.out.println("Request: log output");
+	private void writeLog(BufferedReader in, BufferedOutputStream stream, List<String> headers)
+			throws IOException {
+		System.out.println("Request: log output (client = " + extractUserAgent(headers) + ")");
 		PrintWriter pw = new PrintWriter(stream);
 		pw.append("HTTP/1.0 200 Ok\r\n");
 		pw.append(HTTP_RESPONSE);
@@ -128,8 +137,8 @@ class ServerThread implements Runnable {
 		pw.flush();
 	}
 
-	private void reset(BufferedReader in, BufferedOutputStream stream) {
-		System.out.println("Request: cache reset");
+	private void reset(BufferedReader in, BufferedOutputStream stream, List<String> headers) {
+		System.out.println("Request: cache reset (client = " + extractUserAgent(headers) + ")");
 		PrintWriter pw = new PrintWriter(stream);
 		pw.append("HTTP/1.0 200 Ok\r\n");
 		pw.append(HTTP_RESPONSE);
@@ -159,15 +168,56 @@ class ServerThread implements Runnable {
 		pw.flush();
 	}
 
-	private long readHeaders(BufferedReader in, File file) throws IOException {
-		String pos = "0";
+	private List<String> readHeaders(BufferedReader in) throws IOException {
+		List<String> headers = new ArrayList<String>();
 		String line;
 		while ((line = in.readLine()).length() > 2) {
+			headers.add(line);
+		}
+		return headers;
+	}
+
+	private long extractPosition(List<String> headers, File file) throws IOException {
+		String pos = "0";
+		for (String line : headers) {
 			if (line.startsWith("Range:") && line.contains("=")) {
 				pos = line.split("=")[1].split("[-]")[0];
 			}
 		}
 		return interpretPosition(pos, file);
+	}
+
+	private String extractUserAgent(List<String> headers) {
+		String useragent = "unknown";
+		for (String _line : headers) {
+			String line = _line.toLowerCase();
+			if (line.startsWith("user-agent:") && line.contains(" ")) {
+				useragent = line.split(" ", 2)[1].toLowerCase();
+				break;
+			}
+		}
+		if (useragent.contains("curl")) {
+			useragent = extractElementThatContains(useragent.split(" "), "curl", "curl");
+		}
+		if (useragent.contains("wget")) {
+			useragent = extractElementThatContains(useragent.split(" "), "wget", "wget");
+		}
+		if (useragent.contains("chrome")) {
+			useragent = extractElementThatContains(useragent.split(" "), "chrome", "chrome");
+		}
+		if (useragent.contains("firefox")) {
+			useragent = extractElementThatContains(useragent.split(" "), "firefox", "firefox");
+		}
+		return useragent;
+	}
+
+	private String extractElementThatContains(String[] splitted, String find, String _default) {
+		for (String elem : splitted) {
+			if (elem.contains(find)) {
+				return elem;
+			}
+		}
+		return _default;
 	}
 
 	private static long interpretPosition(String str, File file) {

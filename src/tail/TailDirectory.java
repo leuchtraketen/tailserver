@@ -57,7 +57,7 @@ public class TailDirectory implements Runnable {
 							filesizes.put(name, newerFile.length());
 						}
 						System.out.println("[+] " + (stopped ? "Stopped stream" : "Stream") + " found: "
-								+ newerFile.getName() + " (filesize = " + size + ", last modified = "
+								+ newerFile.getName() + " (filesize = " + size + ", \"last modified\" = "
 								+ formattedAge + " ago)");
 						currentFile = newerFile;
 					}
@@ -110,6 +110,14 @@ public class TailDirectory implements Runnable {
 		} else {
 			growing.put(name, true);
 			return true;
+		}
+	}
+
+	public static boolean isFileNotGrowingSince(File file) {
+		if (isFileGrowing(file)) {
+			return false;
+		} else {
+			return System.currentTimeMillis() - filesizeTimestamps.get(file.getName()) > 5000;
 		}
 	}
 
