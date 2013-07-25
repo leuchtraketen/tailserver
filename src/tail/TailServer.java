@@ -48,6 +48,7 @@ public class TailServer {
 	}
 
 	private static File RECORDING_DIR = null;
+	private static LogProvider currentLogProvider = null;
 
 	private static File findRecordingDirectory() {
 		if (RECORDING_DIR == null) {
@@ -110,6 +111,7 @@ public class TailServer {
 				TailServer.sleep(1000);
 			}
 		}
+		System.out.println();
 
 		while (listening) {
 			try {
@@ -217,7 +219,7 @@ public class TailServer {
 	private static class ServerThread extends Thread {
 		// "Content-Type: application/octet-stream\r\n"
 		private static final CharSequence HTTP_RESPONSE = "Server: TailServer/1.0\r\n"
-				+ "Content-Type: video/x-flv\r\n" + "Connection: close\r\n";
+				+ "Connection: close\r\n";
 
 		private Socket socket = null;
 		private Client client = null;
@@ -230,7 +232,7 @@ public class TailServer {
 			this.clients = clients;
 			client.setRemoteHost(socket.getInetAddress().getCanonicalHostName());
 			client.setRemotePort(socket.getPort());
-			System.out.println("Client connected: " + client);
+			System.out.println("Connected: " + client);
 		}
 
 		public void run() {
@@ -238,17 +240,15 @@ public class TailServer {
 				BufferedOutputStream stream = new BufferedOutputStream(socket.getOutputStream());
 				BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
-				File file = null;
-				try {
-					file = TailServer.lastFileModified();
-
-					long pos = readHeaders(in, file);
-					writeHeaders(stream, file, pos);
-
-					new Tail(socket, stream, client).run(file, pos);
-
-				} catch (FileNotFoundException e) {
-					System.err.println("Error! No files found.");
+				String request = parseRequest(in);
+				if (request.equals("log")) {
+					writeLog(in, stream);
+				} else if (request.equals("file")) {
+					writeLatestFilename(in, stream);
+				} else {
+					writeLatestStream(in, stream);
+					System.out.println("Stats: sent: " + client.getSize() + ", average speed: "
+							+ client.getAverageSpeed());
 				}
 
 				stream.close();
@@ -256,26 +256,98 @@ public class TailServer {
 				socket.close();
 				clients.removeClient(client);
 				client.disconnect();
-				System.out.println("Client disconnected: " + client);
-				System.out.println("Stats: sent: " + client.getSize() + ", average speed: "
-						+ client.getAverageSpeed());
+				System.out.println("Disconnected: " + client);
+				System.out.println();
 
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
 		}
 
-		private void writeHeaders(BufferedOutputStream stream, File file, long pos) {
+		private String parseRequest(BufferedReader in) throws IOException {
+			String request = in.readLine();
+			if (request.contains(" ")) {
+				request = request.split(" ")[1];
+				if (request.startsWith("/")) {
+					request = request.substring(1);
+				}
+			}
+			return request;
+		}
+
+		private void writeLatestStream(BufferedReader in, BufferedOutputStream stream) throws IOException {
+			System.out.println("Request: video stream");
+			File file = null;
+			try {
+				file = TailServer.lastFileModified();
+
+				long pos = readHeaders(in, file);
+				writeStreamHeaders(stream, file, pos);
+
+				new Tail(socket, stream, client).run(file, pos);
+
+			} catch (FileNotFoundException e) {
+				System.err.println("Error! No files found.");
+				PrintWriter pw = new PrintWriter(stream);
+				pw.append("HTTP/1.0 404 Not Found\r\n");
+				pw.append(HTTP_RESPONSE);
+				pw.append("Content-Type: text/plain\r\n");
+				pw.append("\r\n");
+				pw.flush();
+			}
+		}
+
+		private void writeLatestFilename(BufferedReader in, BufferedOutputStream stream) throws IOException {
+			System.out.println("Request: latest file name");
+			PrintWriter pw = new PrintWriter(stream);
+			pw.append("HTTP/1.0 200 Ok\r\n");
+			pw.append(HTTP_RESPONSE);
+			pw.append("Content-Type: text/plain\r\n");
+			pw.append("\r\n");
+			pw.flush();
+			File file = null;
+			try {
+				file = TailServer.lastFileModified();
+				pw.append(file.getName());
+				System.out.println("=> " + file.getName());
+			} catch (FileNotFoundException e) {
+				System.err.println("Error! No files found.");
+			}
+			pw.flush();
+		}
+
+		private void writeLog(BufferedReader in, BufferedOutputStream stream) throws IOException {
+			System.out.println("Request: log output");
+			PrintWriter pw = new PrintWriter(stream);
+			pw.append("HTTP/1.0 200 Ok\r\n");
+			pw.append(HTTP_RESPONSE);
+			pw.append("Content-Type: text/plain\r\n");
+			pw.append("\r\n");
+			pw.flush();
+
+			if (TailServer.currentLogProvider != null) {
+				String log = TailServer.currentLogProvider.getLog();
+				pw.append(log);
+				System.out.println("=> " + log.length() + " bytes");
+			} else {
+				pw.append("no log...");
+			}
+			pw.flush();
+		}
+
+		private void writeStreamHeaders(BufferedOutputStream stream, File file, long pos) {
 			long size = isFileFinished(file) ? file.length() : MAX_FILE_LENGTH;
 			PrintWriter pw = new PrintWriter(stream);
 			if (pos > 0) {
 				pw.append("HTTP/1.0 206 Partial Content\r\n");
 				pw.append(HTTP_RESPONSE);
+				pw.append("Content-Type: video/x-flv\r\n");
 				pw.append("Content-Range: " + pos + "-" + (size - 1) + "/" + size + "\r\n");
 				pw.append("Content-Length: " + (size - pos) + "\r\n");
 			} else {
 				pw.append("HTTP/1.0 200 Ok\r\n");
 				pw.append(HTTP_RESPONSE);
+				pw.append("Content-Type: video/x-flv\r\n");
 				pw.append("Content-Length: " + size + "\r\n");
 			}
 			pw.append("\r\n");
@@ -535,12 +607,13 @@ public class TailServer {
 			}
 		}
 
-		public static class JTextAreaOutputStream extends OutputStream {
+		public static class JTextAreaOutputStream extends OutputStream implements TailServer.LogProvider {
 			JTextArea ta;
 
 			public JTextAreaOutputStream(JTextArea t) {
 				super();
 				ta = t;
+				TailServer.setLogProvider(this);
 			}
 
 			public void write(int i) {
@@ -551,6 +624,11 @@ public class TailServer {
 			public void write(char[] buf, int off, int len) {
 				String s = new String(buf, off, len);
 				ta.append(s);
+			}
+
+			@Override
+			public String getLog() {
+				return ta.getText();
 			}
 		}
 	}
@@ -567,6 +645,14 @@ public class TailServer {
 		}
 		number = (double) ((long) (number * 1000)) / 1000;
 		return number + " " + unit;
+	}
+
+	public static void setLogProvider(LogProvider log) {
+		TailServer.currentLogProvider = log;
+	}
+
+	public interface LogProvider {
+		String getLog();
 	}
 
 	public static boolean sleep(long sleepTime) {
