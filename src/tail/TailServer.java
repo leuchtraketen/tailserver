@@ -129,7 +129,8 @@ public class TailServer {
 		@Override
 		public InputStream open(File file, long pos) throws IOException {
 			InputStream i = new FileInputStream(file);
-			System.out.println("open: " + file + " (offset=" + pos + ")");
+			System.out.println("open: " + file + " (offset = " + formatHumanReadable(pos) + ", filesize = "
+					+ formatHumanReadable(file.length()) + ")");
 			if (pos > 0)
 				i.skip(pos);
 			return i;
@@ -517,20 +518,6 @@ public class TailServer {
 				previousSize = size;
 			}
 
-			private String formatHumanReadable(double number) {
-				String unit = "bytes";
-				if (number > 1024) {
-					number /= 1024;
-					unit = "KiB";
-				}
-				if (number > 1024) {
-					number /= 1024;
-					unit = "MiB";
-				}
-				number = (double) ((long) (number * 1000)) / 1000;
-				return number + " " + unit;
-			}
-
 			@Override
 			public String getAverageSpeed() {
 				return formatHumanReadable(size / (stopTime - startTime) * 1000) + "/s";
@@ -566,6 +553,20 @@ public class TailServer {
 				ta.append(s);
 			}
 		}
+	}
+
+	public static String formatHumanReadable(double number) {
+		String unit = "bytes";
+		if (number > 1024) {
+			number /= 1024;
+			unit = "KiB";
+		}
+		if (number > 1024) {
+			number /= 1024;
+			unit = "MiB";
+		}
+		number = (double) ((long) (number * 1000)) / 1000;
+		return number + " " + unit;
 	}
 
 	public static boolean sleep(long sleepTime) {
