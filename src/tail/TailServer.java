@@ -270,7 +270,7 @@ public class TailServer {
 			if (pos > 0) {
 				pw.append("HTTP/1.0 206 Partial Content\r\n");
 				pw.append(HTTP_RESPONSE);
-				pw.append("Content-Range: " + pos + "-" + (size-1) + "/" + size + "\r\n");
+				pw.append("Content-Range: " + pos + "-" + (size - 1) + "/" + size + "\r\n");
 				pw.append("Content-Length: " + (size - pos) + "\r\n");
 			} else {
 				pw.append("HTTP/1.0 200 Ok\r\n");
@@ -583,6 +583,6 @@ public class TailServer {
 	}
 
 	private static boolean isFileFinished(File file) {
-		return file.length() == filesizes.get(file.getName());
+		return filesizes.containsKey(file.getName()) && file.length() == filesizes.get(file.getName());
 	}
 }
