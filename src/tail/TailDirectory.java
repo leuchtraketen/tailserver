@@ -49,7 +49,7 @@ public class TailDirectory implements Runnable {
 						String size = TailServer.formatBytesHumanReadable(newerFile.length());
 						long age = System.currentTimeMillis() - newerFile.lastModified();
 						String formattedAge = TailServer.formatMilliSecondsHumanReadable(age);
-						boolean stopped = age > 30 * 1000;
+						boolean stopped = age > 10 * 3600 * 1000;
 						if (stopped) {
 							String name = newerFile.getName();
 							growing.put(name, false);
