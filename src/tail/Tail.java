@@ -37,7 +37,9 @@ class Tail {
 						size += read;
 						client.setContentLength(size);
 					}
-				} catch (SocketException e) {} catch (IOException e1) {
+				} catch (SocketException e) {
+					break;
+				} catch (IOException e1) {
 					e1.printStackTrace();
 					break;
 				}
