@@ -39,6 +39,8 @@ class ServerThread implements Runnable {
 				writeLog(in, stream, headers);
 			} else if (request.equals("reset")) {
 				reset(in, stream, headers);
+			} else if (request.equals("favicon.ico")) {
+				// fuck you
 			} else if (request.equals("file")) {
 				writeLatestFilename(in, stream, headers);
 			} else {
@@ -172,7 +174,9 @@ class ServerThread implements Runnable {
 	private List<String> readHeaders(BufferedReader in) throws IOException {
 		List<String> headers = new ArrayList<String>();
 		String line;
-		while ((line = in.readLine()).length() > 2) {
+		while ((line = in.readLine()) != null) {
+			if (line.length() <= 2)
+				break;
 			headers.add(line);
 		}
 		return headers;
